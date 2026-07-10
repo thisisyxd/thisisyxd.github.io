@@ -315,8 +315,8 @@ container.addEventListener('mousedown', (e) => {
 document.addEventListener('mousemove', (e) => {
     if (!state.isPanning) return;
     
-    const dx = (e.clientX - state.lastMouse.x) / state.zoom;
-    const dy = (e.clientY - state.lastMouse.y) / state.zoom;
+    const dx = (e.clientX - state.lastMouse.x) / state.zoom * 2;
+    const dy = (e.clientY - state.lastMouse.y) / state.zoom * 2;
     
     state.viewCenter.x -= dx;
     state.viewCenter.y -= dy;
@@ -373,8 +373,8 @@ container.addEventListener('touchmove', (e) => {
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
             touchState.isPanning = true;
         }
-        state.viewCenter.x -= dx / state.zoom;
-        state.viewCenter.y -= dy / state.zoom;
+        state.viewCenter.x -= dx / state.zoom * 2;
+        state.viewCenter.y -= dy / state.zoom * 2;
         touchState.lastX = e.touches[0].clientX;
         touchState.lastY = e.touches[0].clientY;
         updateViewBox();
