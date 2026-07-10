@@ -318,3 +318,18 @@ svg {
     max-width: 300px;
     border: 1px solid rgba(72, 187, 120, 0.3);
 }
+
+.coord-display {
+    position: fixed;
+    bottom: 52px;
+    right: 20px;
+    background: rgba(0,0,0,0.7);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    color: #888;
+    font-family: 'Consolas', 'Courier New', monospace;
+    pointer-events: none;
+    z-index: 100;
+    user-select: none;
+}

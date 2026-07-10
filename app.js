@@ -262,7 +262,21 @@ const container = document.getElementById('map-container');
 container.addEventListener('wheel', (e) => {
     e.preventDefault();
     const factor = e.deltaY > 0 ? (1 - CONFIG.zoom.step) : (1 + CONFIG.zoom.step);
-    zoom(factor);
+    const newZoom = Math.max(CONFIG.zoom.min, Math.min(CONFIG.zoom.max, state.zoom * factor));
+    const oldZoom = state.zoom;
+
+    const mouseSvg = screenToSvg(e.clientX, e.clientY);
+    const mapSize = CONFIG.mapBounds.max - CONFIG.mapBounds.min;
+    const oldW = mapSize / oldZoom;
+    const newW = mapSize / newZoom;
+    const oldVbx = state.viewCenter.x - oldW / 2;
+    const oldVby = state.viewCenter.y - oldW / 2;
+
+    state.zoom = newZoom;
+    state.viewCenter.x = mouseSvg.x - (mouseSvg.x - oldVbx) * oldZoom / newZoom + newW / 2;
+    state.viewCenter.y = mouseSvg.y - (mouseSvg.y - oldVby) * oldZoom / newZoom + newW / 2;
+
+    updateViewBox();
 }, { passive: false });
 
 container.addEventListener('click', (e) => {
@@ -311,6 +325,14 @@ document.addEventListener('mousemove', (e) => {
 document.addEventListener('mouseup', () => {
     state.isPanning = false;
     container.style.cursor = state.mode === 'view' ? 'grab' : 'crosshair';
+});
+
+container.addEventListener('mousemove', (e) => {
+    const svgP = screenToSvg(e.clientX, e.clientY);
+    const coordDisplay = document.getElementById('coordDisplay');
+    if (coordDisplay) {
+        coordDisplay.textContent = `X: ${Math.round(svgP.x)}  Y: ${Math.round(svgP.y)}`;
+    }
 });
 
 function updateMarker(id, x, y) {
