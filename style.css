@@ -165,6 +165,7 @@ h3 {
     cursor: crosshair;
     position: relative;
     background: #1a202c;
+    touch-action: none;
 }
 
 #map-container.view-mode {
@@ -332,4 +333,36 @@ svg {
     pointer-events: none;
     z-index: 100;
     user-select: none;
+}
+
+/* ==================== 移动端适配 ==================== */
+@media (max-width: 768px) {
+    #panel {
+        top: 0;
+        left: 0;
+        right: 0;
+        border-radius: 0;
+        min-width: auto;
+        padding: 12px 14px;
+    }
+
+    h3 {
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+
+    .mode-btn, .control-btn {
+        min-height: 44px;
+        font-size: 15px;
+    }
+
+    .zoom-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 26px;
+    }
+
+    .zoom-hint, .connection-hint, .coord-display {
+        display: none;
+    }
 }

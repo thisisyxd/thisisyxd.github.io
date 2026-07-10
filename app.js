@@ -281,7 +281,10 @@ container.addEventListener('wheel', (e) => {
 
 container.addEventListener('click', (e) => {
     if (state.mode !== 'nav' || !state.navMode) return;
-    
+    if (touchState.processedTap) {
+        touchState.processedTap = false;
+        return;
+    }
     const pos = getExactPosition(e.clientX, e.clientY);
     if (!pos) {
         document.getElementById('info').textContent = '请点击道路附近';
@@ -333,6 +336,100 @@ container.addEventListener('mousemove', (e) => {
     if (coordDisplay) {
         coordDisplay.textContent = `X: ${Math.round(svgP.x)}  Y: ${Math.round(svgP.y)}`;
     }
+});
+
+// ==================== 移动端触摸支持 ====================
+let touchState = {
+    startX: 0, startY: 0,
+    lastX: 0, lastY: 0,
+    startTime: 0,
+    fingerCount: 0,
+    isPanning: false,
+    pinchDist: 0,
+    processedTap: false
+};
+
+container.addEventListener('touchstart', (e) => {
+    touchState.fingerCount = e.touches.length;
+    touchState.startX = e.touches[0].clientX;
+    touchState.startY = e.touches[0].clientY;
+    touchState.lastX = e.touches[0].clientX;
+    touchState.lastY = e.touches[0].clientY;
+    touchState.startTime = Date.now();
+    touchState.isPanning = false;
+
+    if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchState.pinchDist = Math.hypot(dx, dy);
+    }
+}, { passive: true });
+
+container.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - touchState.lastX;
+        const dy = e.touches[0].clientY - touchState.lastY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+            touchState.isPanning = true;
+        }
+        state.viewCenter.x -= dx / state.zoom;
+        state.viewCenter.y -= dy / state.zoom;
+        touchState.lastX = e.touches[0].clientX;
+        touchState.lastY = e.touches[0].clientY;
+        updateViewBox();
+    } else if (e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        if (touchState.pinchDist > 0) {
+            const factor = dist / touchState.pinchDist;
+            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            const newZoom = Math.max(CONFIG.zoom.min, Math.min(CONFIG.zoom.max, state.zoom * factor));
+            const oldZoom = state.zoom;
+            const mouseSvg = screenToSvg(midX, midY);
+            const mapSize = CONFIG.mapBounds.max - CONFIG.mapBounds.min;
+            const oldW = mapSize / oldZoom;
+            const newW = mapSize / newZoom;
+            const oldVbx = state.viewCenter.x - oldW / 2;
+            const oldVby = state.viewCenter.y - oldW / 2;
+            state.zoom = newZoom;
+            state.viewCenter.x = mouseSvg.x - (mouseSvg.x - oldVbx) * oldZoom / newZoom + newW / 2;
+            state.viewCenter.y = mouseSvg.y - (mouseSvg.y - oldVby) * oldZoom / newZoom + newW / 2;
+            updateViewBox();
+        }
+        touchState.pinchDist = dist;
+        touchState.isPanning = true;
+    }
+}, { passive: false });
+
+container.addEventListener('touchend', (e) => {
+    if (touchState.fingerCount === 1 && !touchState.isPanning) {
+        const elapsed = Date.now() - touchState.startTime;
+        if (elapsed < 300 && state.mode === 'nav' && state.navMode) {
+            const pos = getExactPosition(touchState.startX, touchState.startY);
+            if (!pos) {
+                document.getElementById('info').textContent = '请点击道路附近';
+            } else if (state.navMode === 'start') {
+                state.startPoint = pos;
+                touchState.processedTap = true;
+                updateMarker('marker-start', pos.x, pos.y);
+                document.getElementById('info').textContent = '起点已设置，请设置终点';
+                document.getElementById('btn-start').classList.remove('active');
+                state.navMode = '';
+            } else if (state.navMode === 'end') {
+                state.endPoint = pos;
+                touchState.processedTap = true;
+                updateMarker('marker-end', pos.x, pos.y);
+                document.getElementById('info').textContent = '终点已设置，点击"导航"';
+                document.getElementById('btn-end').classList.remove('active');
+                state.navMode = '';
+            }
+        }
+    }
+    touchState.pinchDist = 0;
 });
 
 function updateMarker(id, x, y) {
