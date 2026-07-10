@@ -137,8 +137,9 @@ function initMap() {
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', station.x);
         circle.setAttribute('cy', station.y);
-        circle.setAttribute('class', 'station-marker');
-        stationsLayer.appendChild(circle);
+                circle.setAttribute('class', 'station-marker');
+                circle.setAttribute('r', 4);
+                stationsLayer.appendChild(circle);
         
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('x', station.x);
@@ -373,8 +374,8 @@ container.addEventListener('touchmove', (e) => {
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
             touchState.isPanning = true;
         }
-        state.viewCenter.x -= dx / state.zoom * 2;
-        state.viewCenter.y -= dy / state.zoom * 2;
+        state.viewCenter.x -= dx / state.zoom * 6;
+        state.viewCenter.y -= dy / state.zoom * 6;
         touchState.lastX = e.touches[0].clientX;
         touchState.lastY = e.touches[0].clientY;
         updateViewBox();

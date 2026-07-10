@@ -350,7 +350,7 @@ svg {
         right: auto;
         border-radius: 0 0 12px 12px;
         min-width: auto;
-        max-width: 75%;
+        max-width: 65%;
         padding: 10px 12px;
     }
 
@@ -379,8 +379,8 @@ svg {
 
     #zoom-controls {
         top: auto;
-        bottom: 20px;
-        right: 20px;
+        bottom: 80px;
+        right: 14px;
         gap: 6px;
     }
 
