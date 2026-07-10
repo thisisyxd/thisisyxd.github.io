@@ -1,0 +1,320 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1a1a1a;
+    color: white;
+    overflow: hidden;
+}
+
+#panel {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(30, 30, 30, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    z-index: 1000;
+    min-width: 280px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+h3 {
+    margin-bottom: 15px;
+    color: #fff;
+    font-size: 16px;
+    border-bottom: 2px solid #4299e1;
+    padding-bottom: 8px;
+}
+
+.mode-switch {
+    display: flex;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 15px;
+}
+
+.mode-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.3s;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.mode-btn.active {
+    background: #4299e1;
+    color: white;
+}
+
+.nav-controls {
+    display: none;
+    gap: 8px;
+    flex-direction: column;
+}
+
+.nav-controls.visible {
+    display: flex;
+}
+
+.control-btn {
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+#btn-start { 
+    background: linear-gradient(135deg, #48bb78, #38a169); 
+    color: white; 
+}
+#btn-end { 
+    background: linear-gradient(135deg, #e53e3e, #c53030); 
+    color: white; 
+}
+#btn-route { 
+    background: linear-gradient(135deg, #4299e1, #3182ce); 
+    color: white; 
+}
+#btn-clear { 
+    background: rgba(255,255,255,0.1); 
+    color: #ccc;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.control-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.control-btn.active {
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
+}
+
+#info {
+    margin-top: 12px;
+    padding: 10px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #aaa;
+    line-height: 1.5;
+    min-height: 40px;
+}
+
+#zoom-controls {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+}
+
+.zoom-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(30, 30, 30, 0.95);
+    backdrop-filter: blur(10px);
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: all 0.2s;
+}
+
+.zoom-btn:hover {
+    background: rgba(50, 50, 50, 0.95);
+    transform: scale(1.05);
+}
+
+.zoom-btn:active {
+    transform: scale(0.95);
+}
+
+#map-container {
+    width: 100vw;
+    height: 100vh;
+    cursor: crosshair;
+    position: relative;
+    background: #1a202c;
+}
+
+#map-container.view-mode {
+    cursor: grab;
+}
+
+#map-container.view-mode:active {
+    cursor: grabbing;
+}
+
+svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.road-highway { 
+    stroke: #151617;
+    stroke-width: 6; 
+    fill: none; 
+    stroke-linecap: round;
+}
+
+.road-primary { 
+    stroke: #2d3748;
+    stroke-width: 4; 
+    fill: none; 
+    stroke-linecap: round;
+}
+
+.road-secondary { 
+    stroke: #718096;
+    stroke-width: 2; 
+    fill: none; 
+    stroke-linecap: round;
+}
+
+.road-railway {
+    stroke: #fbbf24;
+    stroke-width: 1;
+    fill: none;
+    stroke-linecap: round;
+    stroke-dasharray: 8, 4;
+}
+
+.station-marker {
+    fill: #fbbf24;
+    stroke: white;
+    stroke-width: 1;
+    r: 4;
+}
+
+.station-label {
+    font-size: 5px;
+    fill: #fbbf24;
+    text-anchor: middle;
+    font-weight: bold;
+    pointer-events: none;
+    text-shadow: 0 0 2px rgba(0,0,0,0.8);
+}
+
+.route-line {
+    stroke: #f56565;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-dasharray: 12,6;
+    animation: dash 1s linear infinite;
+    display: none;
+    pointer-events: none;
+    filter: drop-shadow(0 0 6px rgba(245, 101, 101, 0.8));
+}
+
+@keyframes dash {
+    to { stroke-dashoffset: -36; }
+}
+
+.marker {
+    display: none;
+    pointer-events: none;
+}
+
+.marker-circle {
+    r: 8;
+    stroke: white;
+    stroke-width: 2;
+}
+
+.marker-pulse {
+    r: 8;
+    fill: none;
+    stroke: white;
+    stroke-width: 2;
+    opacity: 0.6;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { r: 16; opacity: 0.6; }
+    100% { r: 32; opacity: 0; }
+}
+
+#marker-start .marker-circle { fill: #48bb78; }
+#marker-start .marker-pulse { stroke: #48bb78; }
+#marker-end .marker-circle { fill: #e53e3e; }
+#marker-end .marker-pulse { stroke: #e53e3e; }
+
+.city-label {
+    font-size: 48px;
+    fill: rgba(253, 224, 71, 0.15);
+    text-anchor: middle;
+    font-weight: bold;
+    pointer-events: none;
+    letter-spacing: 8px;
+    transition: opacity 0.3s;
+}
+
+.city-label.hidden {
+    opacity: 0;
+}
+
+.boundary {
+    fill: none;
+    stroke: #e53e3e;
+    stroke-width: 3;
+    stroke-dasharray: 15,10;
+    opacity: 0.4;
+}
+
+.zoom-hint {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.7);
+    padding: 10px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: #888;
+    pointer-events: none;
+}
+
+.connection-hint {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    background: rgba(0,0,0,0.8);
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #aaa;
+    max-width: 300px;
+    border: 1px solid rgba(72, 187, 120, 0.3);
+}

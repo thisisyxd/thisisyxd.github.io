@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Minecraft世界导航 - 铁路完善版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="panel">
+        <h3>🗺️ MC世界导航</h3>
+        
+        <div class="mode-switch">
+            <button class="mode-btn active" onclick="setMode('view', event)">👁️ 查看</button>
+            <button class="mode-btn" onclick="setMode('nav', event)">🧭 导航</button>
+        </div>
+        
+        <div class="nav-controls" id="navControls">
+            <button class="control-btn" id="btn-start" onclick="setNavMode('start')">📍 起点</button>
+            <button class="control-btn" id="btn-end" onclick="setNavMode('end')">🏁 终点</button>
+            <button class="control-btn" id="btn-route" onclick="findRoute()">🚗 导航</button>
+            <button class="control-btn" id="btn-clear" onclick="clearAll()">❌ 清除</button>
+        </div>
+        
+        <div id="info">查看模式：滚轮缩放，拖拽平移</div>
+    </div>
+
+    <div id="zoom-controls">
+        <button class="zoom-btn" onclick="zoom(1.2)" title="放大">+</button>
+        <button class="zoom-btn" onclick="zoom(0.8)" title="缩小">−</button>
+    </div>
+
+    <div class="zoom-hint">滚轮缩放 | 拖拽平移 | 右上角按钮缩放</div>
+    
+    <div class="connection-hint">
+        <strong style="color:#48bb78">💡 铁路系统</strong><br>
+        黄色虚线为铁路，只能在车站上下车<br>
+        铁路交叉不可换乘，车站是唯一换乘点
+    </div>
+
+    <div id="map-container" class="view-mode">
+        <svg id="map" viewBox="-1500 -1500 3000 3000" preserveAspectRatio="xMidYMid meet">
+            <rect x="-2500" y="-2500" width="5000" height="5000" fill="#1a202c"/>
+            <rect x="-2500" y="-2500" width="5000" height="5000" class="boundary"/>
+            
+            <text id="label-a" x="-355" y="81" class="city-label">A市</text>
+            <text id="label-b" x="622" y="-737" class="city-label">B市</text>
+            <text id="label-c" x="-265" y="-245" class="city-label">C市</text>
+            <text id="label-d" x="722" y="-1480" class="city-label">D市</text>
+            <text id="label-e" x="-117" y="-985" class="city-label">E市</text>
+            <text id="label-f" x="40" y="-1212" class="city-label">F市</text>
+            <text id="label-g" x="233" y="-820" class="city-label">G市</text>
+            <text id="label-h" x="350" y="122" class="city-label">H市</text>
+            
+            <g id="roads-layer"></g>
+            <g id="railway-layer"></g>
+            <g id="stations-layer"></g>
+            
+            <path id="route" class="route-line" d=""/>
+            
+            <g id="marker-start" class="marker">
+                <circle class="marker-pulse"/>
+                <circle class="marker-circle"/>
+            </g>
+            <g id="marker-end" class="marker">
+                <circle class="marker-pulse"/>
+                <circle class="marker-circle"/>
+            </g>
+        </svg>
+    </div>
+
+    <script src="roads/citys/city_location.js"></script>
+    <script src="roads/roads/A.js"></script>
+    <script src="roads/roads/B.js"></script>
+    <script src="roads/roads/C.js"></script>
+    <script src="roads/roads/D.js"></script>
+    <script src="roads/roads/E.js"></script>
+    <script src="roads/roads/F.js"></script>
+    <script src="roads/roads/G.js"></script>
+    <script src="roads/roads/H.js"></script>
+    <script src="roads/roads/connection_road.js"></script>
+    <script src="roads/railway/railway.js"></script>
+    <script src="roads/metro/metro.js"></script>
+    <script src="roads-builder.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

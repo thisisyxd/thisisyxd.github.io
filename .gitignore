@@ -1,0 +1,13 @@
+# 旧版本备份
+old_version/
+
+# 系统文件
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
