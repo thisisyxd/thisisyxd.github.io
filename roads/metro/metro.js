@@ -27,8 +27,8 @@ const metro = {
             'A3_3': { x: -299, y: 44, dir: 'NS', entrances: [{ name: 'A', x: -294, y: 44 }, { name: 'B', x: -294, y: 47 }] },
             'A3_4': { x: -299, y: 7, dir: 'NS', entrances: [{ name: 'A', x: -294, y: 10 }, { name: 'B', x: -274, y: 9 }], transfer: ['A4_3'] },
             'A3_5': { x: -299, y: -30, dir: 'NS', entrances: [{ name: 'A', x: -290, y: -40 }] },
-            'A4_1': { x: -232, y: 29, dir: 'NS', entrances: [{ name: 'A', x: -299, y: 30 }], railway: false },
-            'A4_2': { x: -247, y: 18, dir: 'EW', entrances: [{ name: 'A', x: -248, y: 58 }, { name: 'B', x: -239, y: 8 }] },
+            'A4_1': { x: -232, y: 29, dir: 'NS', entrances: [{ name: 'A', x: -229, y: 32 }], railway: true },
+            'A4_2': { x: -247, y: 18, dir: 'EW', entrances: [{ name: 'A', x: -244, y: 9 }, { name: 'B', x: -239, y: 8 }] },
             'A4_3': { x: -295, y: 18, dir: 'EW', entrances: [{ name: 'A', x: -294, y: 10 }, { name: 'B', x: -274, y: 9 }], transfer: ['A3_4'] },
             'A4_4': { x: -353, y: 18, dir: 'EW', entrances: [{ name: 'A', x: -351, y: 7 }, { name: 'B', x: -349, y: 17 }], transfer: ['A1_2'] },
             'A4_5': { x: -399, y: 18, dir: 'EW', entrances: [{ name: 'A', x: -399, y: 24 }] }
@@ -85,10 +85,10 @@ const metro = {
             'C1': { name: 'C1号线', color: '#9b2c2c', class: 'metro-line-c1', number: '1' }
         },
         stations: {
-            'C1_1': { x: -192, y: -241, dir: 'EW', entrances: [{ name: 'A', x: -292, y: -250 }] },
+            'C1_1': { x: -192, y: -241, dir: 'EW', entrances: [{ name: 'A', x: -192, y: -249 }] },
             'C1_2': { x: -237, y: -241, dir: 'EW', entrances: [{ name: 'A', x: -241, y: -230 }], railway: true },
             'C1_3': { x: -265, y: -241, dir: 'EW', entrances: [{ name: 'A', x: -265, y: -266 }] },
-            'C1_4': { x: -306, y: -231, dir: 'EW', entrances: [{ name: 'A', x: -287, y: -246 }, { name: 'B', x: -210, y: -241 }] }
+            'C1_4': { x: -306, y: -231, dir: 'EW', entrances: [{ name: 'A', x: -287, y: -246 }, { name: 'B', x: -288, y: -246 }] }
         },
         sequences: {
             'C1': ['C1_1', 'C1_2', 'C1_3', [-306, -241], 'C1_4']

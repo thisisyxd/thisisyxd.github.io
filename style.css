@@ -246,6 +246,16 @@ svg {
     filter: drop-shadow(0 0 6px rgba(245, 101, 101, 0.8));
 }
 
+.route-segment {
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-dasharray: 12,6;
+    animation: dash 1s linear infinite;
+    pointer-events: none;
+    filter: drop-shadow(0 0 6px rgba(245, 101, 101, 0.8));
+}
+
 @keyframes dash {
     to { stroke-dashoffset: -36; }
 }
@@ -273,6 +283,11 @@ svg {
 @keyframes pulse {
     0% { r: 16; opacity: 0.6; }
     100% { r: 32; opacity: 0; }
+}
+
+@keyframes pulse-sm {
+    0% { r: 8; opacity: 0.6; }
+    100% { r: 16; opacity: 0; }
 }
 
 #marker-start .marker-circle { fill: #48bb78; }
@@ -325,6 +340,45 @@ svg {
     color: #aaa;
     max-width: 300px;
     border: 1px solid rgba(72, 187, 120, 0.3);
+}
+
+.metro-line {
+    stroke-width: 1;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+.metro-station {
+    fill: white;
+    stroke: #333;
+    stroke-width: 1.5;
+    pointer-events: none;
+}
+
+.metro-station-colored {
+    stroke: rgba(255,255,255,0.6);
+    stroke-width: 0.5;
+    pointer-events: none;
+}
+
+.metro-transfer-line {
+    stroke: #f56565;
+    stroke-width: 0.5;
+    stroke-dasharray: 1, 1.5;
+    fill: none;
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.metro-marker-text {
+    font-size: 3.5px;
+    fill: white;
+    font-weight: bold;
+    pointer-events: none;
+    font-family: Arial, sans-serif;
 }
 
 .coord-display {

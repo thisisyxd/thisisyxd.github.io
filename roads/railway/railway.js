@@ -1,7 +1,7 @@
 const railway = {
     stations: {
         A_main: { x: -325, y: 125, name: 'A站', city: 'A' },
-        A_minor: { x: -224, y: 27, name: 'A东站', city: 'A' },
+        A_minor: { x: -224, y: 27, name: 'A东站', city: 'A', boardCost: 120 },
         B: { x: 560, y: -685, name: 'B站', city: 'B' },
         C: { x: -235, y: -237, name: 'C站', city: 'C' },
         D: { x: 682, y: -1434, name: 'D站', city: 'D' },

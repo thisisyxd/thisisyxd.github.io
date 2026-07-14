@@ -4,10 +4,11 @@ const CONFIG = {
     viewBounds: { min: -2500, max: 2500 },
     zoom: { min: 0.3, max: 10, step: 0.15 },
     labelHideZoom: 1.8,
-    priorities: { 0: 6, 3: 3, 2: 2, 1: 1.5 },
+    priorities: { 0: 6, 3: 3, 2: 2, 1: 1.5, '-2': 6 },
     sampleInterval: 5,
     connectionSnapDistance: 50,
-    railwayPenalty: 50
+    railwayPenalty: 50,
+    metro: { boardingBase: 15, transferBase: 10 }
 };
 
 let state = {
@@ -44,17 +45,23 @@ allRoads.forEach(road => {
         dist, 
         weight, 
         level: road.level, 
-        isRailway: road.level === 0 
+        isRailway: road.level === 0,
+        isMetro: !!road.isMetro,
+        isMetroEntrance: !!road.isMetroEntrance,
+        lineId: road.lineId || null
     });
     graph[road.to].push({ 
         to: road.from, 
         dist, 
         weight, 
         level: road.level, 
-        isRailway: road.level === 0 
+        isRailway: road.level === 0,
+        isMetro: !!road.isMetro,
+        isMetroEntrance: !!road.isMetroEntrance,
+        lineId: road.lineId || null
     });
     
-    if (road.level !== 0) {
+    if (road.level !== 0 && !road.isMetro) {
         const steps = Math.max(2, Math.floor(dist / CONFIG.sampleInterval));
         for (let i = 0; i <= steps; i++) {
             const t = i / steps;
@@ -76,7 +83,7 @@ Object.entries(stationNodes).forEach(([stationId, station]) => {
     let minDist = Infinity;
     
     for (const [nodeId, node] of Object.entries(allNodes)) {
-        if (node.isStation || node.isRailwayNode || nodeId.startsWith('station_') || nodeId.startsWith('midpoint_')) continue;
+        if (node.isStation || node.isRailwayNode || node.isMetro || node.isMetroWaypoint || nodeId.startsWith('station_') || nodeId.startsWith('midpoint_')) continue;
         
         const dist = Math.hypot(node.x - station.x, node.y - station.y);
         if (dist < minDist && dist <= 15) {
@@ -86,7 +93,8 @@ Object.entries(stationNodes).forEach(([stationId, station]) => {
     }
     
     if (nearestRoadNode) {
-        const penaltyWeight = CONFIG.railwayPenalty / CONFIG.priorities[3];
+        const cost = station.boardCost || CONFIG.railwayPenalty;
+        const penaltyWeight = cost / CONFIG.priorities[3];
         
         graph[nearestRoadNode].push({ 
             to: stationId, 
@@ -108,13 +116,277 @@ Object.entries(stationNodes).forEach(([stationId, station]) => {
     }
 });
 
+// ==================== 地铁图边 ====================
+const METRO_PRIORITY = CONFIG.priorities['-2']; // 4.5
+const NARROW_PRIORITY = CONFIG.priorities[1];   // 1.5
+const MEDIUM_PRIORITY = CONFIG.priorities[2];   // 2
+
+// 修正地铁线路/出入口边权重
+Object.keys(graph).forEach(key => {
+    graph[key] = graph[key].map(edge => {
+        if (edge.isMetro && !edge.isMetroEntrance) {
+            edge.weight = edge.dist / METRO_PRIORITY;
+        }
+        if (edge.isMetroEntrance) {
+            edge.weight = 0;
+            edge.dist = 0;
+        }
+        return edge;
+    });
+});
+
+// 收集地铁入口节点 + 入口到站台距离
+const metroEntranceNodes = {};
+const entStationDist = {};
+allRoads.forEach(road => {
+    if (!road.isMetroEntrance) return;
+    const a = allNodes[road.from];
+    const b = allNodes[road.to];
+    const entId = a.isMetroEntrance ? road.from : road.to;
+    const stId = a.isMetroEntrance ? road.to : road.from;
+    const d = Math.hypot(allNodes[stId].x - allNodes[entId].x, allNodes[stId].y - allNodes[entId].y);
+    entStationDist[entId] = d;
+});
+for (const [nodeId, node] of Object.entries(allNodes)) {
+    if (node.isMetroEntrance) metroEntranceNodes[nodeId] = node;
+}
+
+// 地铁出入口 → 道路网络（登车惩罚）
+Object.entries(metroEntranceNodes).forEach(([entId, ent]) => {
+    let nearest = null, minDist = Infinity;
+    for (const [nodeId, node] of Object.entries(allNodes)) {
+        if (node.isStation || node.isRailwayNode || node.isMetro || node.isMetroWaypoint ||
+            node.isMetroEntrance || nodeId.startsWith('station_') || nodeId.startsWith('midpoint_')) continue;
+        const d = Math.hypot(node.x - ent.x, node.y - ent.y);
+        if (d < minDist && d <= 50) { minDist = d; nearest = nodeId; }
+    }
+    if (nearest) {
+        const eDist = entStationDist[entId] || 0;
+        const boardDist = CONFIG.metro.boardingBase + eDist / 2;
+        graph[nearest].push({
+            to: entId, dist: boardDist + minDist, weight: (boardDist + minDist) / NARROW_PRIORITY,
+            level: -4, isMetroBoarding: true, transferType: 'board-metro'
+        });
+        graph[entId].push({
+            to: nearest, dist: minDist, weight: minDist / NARROW_PRIORITY,
+            level: -4, isMetroBoarding: true, transferType: 'exit-metro'
+        });
+    }
+});
+
+// 地铁-地铁换乘边 (+10格惩罚+站间距)
+Object.entries(window.metro).forEach(([cityName, cityData]) => {
+    Object.entries(cityData.stations).forEach(([sid, s]) => {
+        if (!s.transfer) return;
+        const fromId = `metro_${cityName}_${sid}`;
+        s.transfer.forEach(tid => {
+            if (sid >= tid) return;
+            const t = cityData.stations[tid];
+            if (!t) return;
+            const toId = `metro_${cityName}_${tid}`;
+            const d = Math.hypot(t.x - s.x, t.y - s.y);
+            const pd = CONFIG.metro.transferBase + d;
+            graph[fromId].push({
+                to: toId, dist: pd, weight: pd / NARROW_PRIORITY,
+                level: -4, isMetroTransfer: true
+            });
+            graph[toId].push({
+                to: fromId, dist: pd, weight: pd / NARROW_PRIORITY,
+                level: -4, isMetroTransfer: true
+            });
+        });
+    });
+});
+
+// 铁路-地铁换乘边（站间距中等道路惩罚）
+const rwByCity = {};
+Object.entries(stationNodes).forEach(([nid, rw]) => {
+    if (rw.city) (rwByCity[rw.city] ||= []).push({ id: nid, x: rw.x, y: rw.y });
+});
+Object.entries(window.metro).forEach(([cityName, cityData]) => {
+    Object.entries(cityData.stations).forEach(([sid, s]) => {
+        if (!s.railway) return;
+        const fromId = `metro_${cityName}_${sid}`;
+        const rwList = rwByCity[cityName] || [];
+        let nearest = null, minDist = Infinity;
+        rwList.forEach(rw => {
+            const d = Math.hypot(rw.x - s.x, rw.y - s.y);
+            if (d < minDist) { minDist = d; nearest = rw; }
+        });
+        if (nearest) {
+            graph[fromId].push({
+                to: nearest.id, dist: minDist, weight: minDist / MEDIUM_PRIORITY,
+                level: -4, isMetroRailway: true
+            });
+            graph[nearest.id].push({
+                to: fromId, dist: minDist, weight: minDist / MEDIUM_PRIORITY,
+                level: -4, isMetroRailway: true
+            });
+        }
+    });
+});
+
 // ==================== 初始化地图 ====================
+function initMetro() {
+    const metroLayer = document.getElementById('metro-layer');
+    const metroStationsLayer = document.getElementById('metro-stations-layer');
+    if (!window.metro) return;
+
+    const railwayByCity = {};
+    Object.entries(stationNodes).forEach(([nodeId, st]) => {
+        if (st.city) {
+            (railwayByCity[st.city] ||= []).push({ x: st.x, y: st.y, nodeId });
+        }
+    });
+
+    const transferIds = new Set();
+    Object.entries(window.metro).forEach(([_, cityData]) => {
+        Object.entries(cityData.stations).forEach(([sid, s]) => {
+            if (s.transfer && s.transfer.length) {
+                transferIds.add(sid);
+                s.transfer.forEach(tid => transferIds.add(tid));
+            }
+        });
+    });
+
+    // Transfer connection lines
+    Object.entries(window.metro).forEach(([cityName, cityData]) => {
+        Object.entries(cityData.stations).forEach(([sid, s]) => {
+            if (s.transfer) {
+                s.transfer.forEach(tid => {
+                    const t = cityData.stations[tid];
+                    if (!t || sid >= tid) return;
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', s.x);
+                    line.setAttribute('y1', s.y);
+                    line.setAttribute('x2', t.x);
+                    line.setAttribute('y2', t.y);
+                    line.setAttribute('class', 'metro-transfer-line');
+                    metroLayer.appendChild(line);
+                });
+            }
+        });
+
+        Object.entries(cityData.stations).forEach(([sid, s]) => {
+            if (!s.railway) return;
+            const cityRw = railwayByCity[cityName] || [];
+            let nearest = null, minDist = Infinity;
+            cityRw.forEach(rw => {
+                const d = Math.hypot(rw.x - s.x, rw.y - s.y);
+                if (d < minDist) { minDist = d; nearest = rw; }
+            });
+            if (nearest) {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', s.x);
+                line.setAttribute('y1', s.y);
+                line.setAttribute('x2', nearest.x);
+                line.setAttribute('y2', nearest.y);
+                line.setAttribute('class', 'metro-transfer-line');
+                metroLayer.appendChild(line);
+            }
+        });
+    });
+
+    // Metro lines / stations / markers
+    Object.entries(window.metro).forEach(([cityName, cityData]) => {
+        Object.entries(cityData.sequences).forEach(([lineId, sequence]) => {
+            const lineConfig = cityData.lines[lineId];
+            if (!lineConfig || sequence.length < 2) return;
+
+            const points = sequence.map(item => {
+                if (typeof item === 'string') {
+                    const station = cityData.stations[item];
+                    return station ? { x: station.x, y: station.y } : null;
+                }
+                if (Array.isArray(item) && item.length === 2) {
+                    return { x: item[0], y: item[1] };
+                }
+                return null;
+            }).filter(p => p !== null);
+
+            if (points.length < 2) return;
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+            path.setAttribute('d', d);
+            path.setAttribute('stroke', lineConfig.color);
+            path.setAttribute('class', 'metro-line');
+            path.setAttribute('data-line', lineId);
+            metroLayer.appendChild(path);
+        });
+
+        Object.entries(cityData.stations).forEach(([stationId, station]) => {
+            const isTransfer = transferIds.has(stationId);
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', station.x);
+            circle.setAttribute('cy', station.y);
+            circle.setAttribute('r', isTransfer ? 2.5 : 1);
+            if (isTransfer) {
+                circle.setAttribute('class', 'metro-station');
+            } else {
+                const lineId = stationId.substring(0, stationId.lastIndexOf('_'));
+                const lc = cityData.lines[lineId];
+                circle.setAttribute('fill', lc ? lc.color : '#fff');
+                circle.setAttribute('class', 'metro-station-colored');
+            }
+            metroStationsLayer.appendChild(circle);
+        });
+
+        Object.entries(cityData.markers).forEach(([lineId, marker]) => {
+            const lineConfig = cityData.lines[lineId];
+            if (!lineConfig) return;
+
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const size = 5;
+
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', marker.x - size / 2);
+            rect.setAttribute('y', marker.y - size / 2);
+            rect.setAttribute('width', size);
+            rect.setAttribute('height', size);
+            rect.setAttribute('rx', 0.5);
+            rect.setAttribute('ry', 0.5);
+            rect.setAttribute('fill', lineConfig.color);
+            group.appendChild(rect);
+
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', marker.x);
+            text.setAttribute('y', marker.y + 0.5);
+            text.setAttribute('class', 'metro-marker-text');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'central');
+            text.textContent = lineConfig.number;
+            group.appendChild(text);
+
+            metroStationsLayer.appendChild(group);
+        });
+    });
+
+    // 出入口小点
+    Object.entries(window.metro).forEach(([cityName, cityData]) => {
+        Object.entries(cityData.stations).forEach(([stationId, station]) => {
+            station.entrances.forEach(ent => {
+                if (!ent.x || !ent.y) return;
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', ent.x);
+                circle.setAttribute('cy', ent.y);
+                circle.setAttribute('r', 0.5);
+                circle.setAttribute('fill', '#f56565');
+                circle.setAttribute('opacity', '0.35');
+                metroStationsLayer.appendChild(circle);
+            });
+        });
+    });
+}
+
 function initMap() {
     const roadsLayer = document.getElementById('roads-layer');
     const railwayLayer = document.getElementById('railway-layer');
     const stationsLayer = document.getElementById('stations-layer');
     
     allRoads.forEach(road => {
+        if (road.isMetro) return;
+        
         const p1 = allNodes[road.from];
         const p2 = allNodes[road.to];
         
@@ -148,6 +420,16 @@ function initMap() {
         text.textContent = station.stationName;
         stationsLayer.appendChild(text);
     });
+
+    initMetro();
+    setMetroVisible(false);
+}
+
+function setMetroVisible(visible) {
+    const ml = document.getElementById('metro-layer');
+    const msl = document.getElementById('metro-stations-layer');
+    if (ml) ml.style.display = visible ? '' : 'none';
+    if (msl) msl.style.display = visible ? '' : 'none';
 }
 
 function setMode(newMode, e) {
@@ -159,11 +441,20 @@ function setMode(newMode, e) {
     const container = document.getElementById('map-container');
     const info = document.getElementById('info');
     
+    const isTransit = newMode === 'transit';
+    setMetroVisible(isTransit);
+    
     if (newMode === 'view') {
         navControls.classList.remove('visible');
         container.classList.remove('nav-mode');
         container.classList.add('view-mode');
         info.textContent = '查看模式：滚轮缩放，拖拽平移';
+        clearAll();
+    } else if (isTransit) {
+        navControls.classList.add('visible');
+        container.classList.remove('view-mode');
+        container.classList.add('nav-mode');
+        info.textContent = '公共模式：点击"起点"后在道路上点击（可使用地铁）';
         clearAll();
     } else {
         navControls.classList.add('visible');
@@ -250,6 +541,13 @@ function updateViewBox() {
             label.classList.remove('hidden');
         }
     });
+    document.querySelectorAll('#marker-start circle, #marker-end circle').forEach(c => {
+        c.setAttribute('r', shouldHideLabels ? 4 : 8);
+        c.setAttribute('stroke-width', shouldHideLabels ? 1 : 2);
+        if (c.classList.contains('marker-pulse')) {
+            c.style.animationName = shouldHideLabels ? 'pulse-sm' : 'pulse';
+        }
+    });
 }
 
 function zoom(factor) {
@@ -281,7 +579,7 @@ container.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 container.addEventListener('click', (e) => {
-    if (state.mode !== 'nav' || !state.navMode) return;
+    if ((state.mode !== 'nav' && state.mode !== 'transit') || !state.navMode) return;
     if (touchState.processedTap) {
         touchState.processedTap = false;
         return;
@@ -409,7 +707,7 @@ container.addEventListener('touchmove', (e) => {
 container.addEventListener('touchend', (e) => {
     if (touchState.fingerCount === 1 && !touchState.isPanning) {
         const elapsed = Date.now() - touchState.startTime;
-        if (elapsed < 300 && state.mode === 'nav' && state.navMode) {
+        if (elapsed < 300 && (state.mode === 'nav' || state.mode === 'transit') && state.navMode) {
             const pos = getExactPosition(touchState.startX, touchState.startY);
             if (!pos) {
                 document.getElementById('info').textContent = '请点击道路附近';
@@ -456,11 +754,18 @@ function findRoute() {
         return;
     }
     
-    drawRoute(result.path);
+    drawRoute(result.path, result.edges);
     
     let infoText = `路线：${result.actualDistance.toFixed(0)}格`;
+    if (result.usesMetro) {
+        infoText += `（需乘地铁`;
+        if (result.metroTransferCount > 0) {
+            infoText += `，需换乘${result.metroTransferCount}次`;
+        }
+        infoText += `）`;
+    }
     if (result.usesRailway) {
-        infoText += `（需乘坐火车，请合理规划时间）`;
+        infoText += `（需乘坐火车）`;
     }
     document.getElementById('info').textContent = infoText;
 }
@@ -518,6 +823,7 @@ function findPathWithRailway(start, end) {
         
         for (let neighbor of tempGraph[u]) {
             if (!unvisited.has(neighbor.to)) continue;
+            if (state.mode !== 'transit' && (neighbor.isMetro || neighbor.isMetroTransfer || neighbor.isMetroBoarding || neighbor.isMetroRailway)) continue;
             const alt = dist[u] + neighbor.weight;
             if (alt < dist[neighbor.to]) {
                 dist[neighbor.to] = alt;
@@ -540,8 +846,10 @@ function findPathWithRailway(start, end) {
     
     const coordPath = [];
     let usesRailway = false;
+    let usesMetro = false;
     let actualDistance = 0;
-    
+    let metroTransferCount = 0;
+
     for (let i = 0; i < nodePath.length; i++) {
         const id = nodePath[i];
         if (id === '_start_') {
@@ -552,10 +860,20 @@ function findPathWithRailway(start, end) {
             coordPath.push({ x: allNodes[id].x, y: allNodes[id].y });
         }
     }
-    
+
     for (let i = 0; i < edges.length; i++) {
         const edge = edges[i];
-        if (edge.isRailway) {
+        if (edge.isMetro && !edge.isMetroEntrance) {
+            usesMetro = true;
+            actualDistance += edge.dist;
+        } else if (edge.isMetroTransfer) {
+            usesMetro = true;
+            actualDistance += edge.dist;
+            metroTransferCount++;
+        } else if (edge.isMetroBoarding || edge.isMetroRailway) {
+            usesMetro = true;
+            actualDistance += edge.dist;
+        } else if (edge.isRailway) {
             usesRailway = true;
             actualDistance += edge.dist;
         } else if (!edge.isTransfer) {
@@ -566,22 +884,59 @@ function findPathWithRailway(start, end) {
     actualDistance += Math.hypot(coordPath[1].x - coordPath[0].x, coordPath[1].y - coordPath[0].y);
     actualDistance += Math.hypot(coordPath[coordPath.length-1].x - coordPath[coordPath.length-2].x, 
                                  coordPath[coordPath.length-1].y - coordPath[coordPath.length-2].y);
+
     
     return {
         path: coordPath,
+        edges,
         usesRailway,
+        usesMetro,
         actualDistance,
+        metroTransferCount,
         totalWeight: dist[endId]
     };
 }
 
-function drawRoute(points) {
-    const d = points.map((p, i) => 
-        `${i===0?'M':'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`
-    ).join(' ');
-    
-    document.getElementById('route').setAttribute('d', d);
-    document.getElementById('route').style.display = 'block';
+function getMetroColor(lineId) {
+    if (!lineId) return null;
+    try { return window.metro[lineId.charAt(0)].lines[lineId].color; }
+    catch(e) { return null; }
+}
+
+function drawRoute(points, edges) {
+    document.querySelectorAll('.route-segment').forEach(el => el.remove());
+    const route = document.getElementById('route');
+    route.style.display = 'none';
+
+    if (!edges || !edges.length || edges.length + 1 !== points.length) {
+        route.setAttribute('d', points.map((p,i) => `${i===0?'M':'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '));
+        route.style.display = 'block';
+        return;
+    }
+
+    const isMetroEdge = e => e.isMetro && !e.isMetroEntrance && !e.isMetroTransfer && !e.isMetroBoarding && !e.isMetroRailway;
+    const segList = [];
+    let curColor = null, segStart = 0;
+    for (let i = 0; i < edges.length; i++) {
+        const color = isMetroEdge(edges[i]) ? (getMetroColor(edges[i].lineId) || '#f56565') : '#f56565';
+        if (color !== curColor) {
+            if (curColor !== null) segList.push({ color: curColor, start: segStart, end: i - 1 });
+            curColor = color;
+            segStart = i;
+        }
+    }
+    segList.push({ color: curColor, start: segStart, end: edges.length - 1 });
+
+    const container = route.parentNode;
+    segList.forEach(seg => {
+        const pts = points.slice(seg.start, seg.end + 2);
+        const d = pts.map((p,i) => `${i===0?'M':'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('class', 'route-segment');
+        path.setAttribute('stroke', seg.color);
+        container.appendChild(path);
+    });
 }
 
 function clearAll() {
@@ -591,9 +946,12 @@ function clearAll() {
     document.getElementById('marker-start').style.display = 'none';
     document.getElementById('marker-end').style.display = 'none';
     document.getElementById('route').style.display = 'none';
+    document.querySelectorAll('.route-segment').forEach(el => el.remove());
     document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
     if (state.mode === 'nav') {
         document.getElementById('info').textContent = '点击"起点"后在道路上点击';
+    } else if (state.mode === 'transit') {
+        document.getElementById('info').textContent = '公共模式：点击"起点"后在道路上点击（可使用地铁）';
     }
 }
 

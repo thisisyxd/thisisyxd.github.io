@@ -173,7 +173,8 @@ Object.entries(railway.stations).forEach(([key, station]) => {
         y: station.y,
         city: station.city,
         isStation: true,
-        stationName: station.name
+        stationName: station.name,
+        boardCost: station.boardCost
     };
     allNodes[nodeId] = stationNodes[nodeId];
 });
@@ -191,6 +192,64 @@ railway.lines.forEach(([from, to]) => {
     if (allNodes[from] && allNodes[to]) {
         allRoads.push({ from, to, level: 0, isRailway: true });
     }
+});
+
+// 地铁
+Object.entries(metro).forEach(([cityName, cityData]) => {
+    Object.entries(cityData.stations).forEach(([stationId, station]) => {
+        const nodeId = `metro_${cityName}_${stationId}`;
+        allNodes[nodeId] = {
+            x: station.x,
+            y: station.y,
+            city: cityName,
+            isMetro: true,
+            stationName: `${cityName}线${stationId}`,
+            metroRailway: !!station.railway
+        };
+    });
+
+    Object.entries(cityData.sequences).forEach(([lineId, sequence]) => {
+        const resolved = [];
+        sequence.forEach((item, idx) => {
+            if (typeof item === 'string') {
+                const station = cityData.stations[item];
+                if (!station) return;
+                resolved.push(`metro_${cityName}_${item}`);
+            } else if (Array.isArray(item) && item.length === 2) {
+                const wpId = `metro_wp_${cityName}_${lineId}_${idx}`;
+                allNodes[wpId] = { x: item[0], y: item[1], city: cityName, isMetroWaypoint: true };
+                resolved.push(wpId);
+            }
+        });
+
+        for (let i = 0; i < resolved.length - 1; i++) {
+            allRoads.push({ from: resolved[i], to: resolved[i + 1], level: -2, isMetro: true, lineId: lineId });
+        }
+    });
+});
+
+// 地铁出入口
+Object.entries(metro).forEach(([cityName, cityData]) => {
+    Object.entries(cityData.stations).forEach(([stationId, station]) => {
+        const stationNodeId = `metro_${cityName}_${stationId}`;
+        station.entrances.forEach((entrance, idx) => {
+            if (!entrance.x || !entrance.y) return;
+            const entId = `metro_ent_${cityName}_${stationId}_${entrance.name}`;
+            allNodes[entId] = {
+                x: entrance.x,
+                y: entrance.y,
+                city: cityName,
+                isMetroEntrance: true
+            };
+            allRoads.push({
+                from: entId,
+                to: stationNodeId,
+                level: -3,
+                isMetro: true,
+                isMetroEntrance: true
+            });
+        });
+    });
 });
 
 // 连接道路
