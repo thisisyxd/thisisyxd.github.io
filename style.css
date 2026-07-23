@@ -286,8 +286,8 @@ svg {
 }
 
 @keyframes pulse-sm {
-    0% { r: 8; opacity: 0.6; }
-    100% { r: 16; opacity: 0; }
+    0% { r: 6; opacity: 0.6; }
+    100% { r: 12; opacity: 0; }
 }
 
 #marker-start .marker-circle { fill: #48bb78; }
